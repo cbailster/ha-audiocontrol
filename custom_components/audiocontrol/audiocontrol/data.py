@@ -16,9 +16,11 @@ def temp_conversion(temp: float, unit: str) -> float:
     if unit == "C":
         return temp
     if unit == "F":
+        if temp < 32:
+            return 0
         return round((temp - 32) / 1.8, 1)  # Convert Fahrenheit to Celsius
-    else:
-        raise ValueError("Invalid temperature unit. Use 'C' or 'F'.")
+
+    raise ValueError("Invalid temperature unit. Use 'C' or 'F'.")
 
 @dataclass
 class InputSource:
@@ -28,24 +30,24 @@ class InputSource:
         name: Name of the input source
         id: Unique identifier for the input source
     """
-    name: str | None = None
-    id: int | None = None
-    digital: bool = False
+    name: str | None = None # In both JSON files
+    id: int | None = None   # In both JSON files
+    digital: bool = False   # Inferred from id (8 and 9 are digital inputs)
 
     def populate_from_dict(self, data: dict[str, Any]) -> None:
         """Populate the InputSource attributes from a dictionary."""
         self.name = data.get("name")
         self.id = data.get("value")
-        self.digital = (self.id == 8 or self.id == 9)  # Assumes 8 and 9 are digital inputs
+        self.digital = bool(self.id in (8,9))  # Assumes 8 and 9 are digital inputs
 
     @classmethod
-    def from_inputs_list(cls, inputs_list: list[dict[str, Any]]) -> list["InputSource"]:
+    def from_inputs_list(cls, inputs_list: list[dict[str, Any]]) -> dict[int, "InputSource"]:
         """Create a list of InputSource instances from a list of dictionaries."""
-        sources = []
+        sources = {}
         for input_data in inputs_list:
             source = cls()
             source.populate_from_dict(input_data)
-            sources.append(source)
+            sources[source.id] = source
         return sources
 
 @dataclass
@@ -59,17 +61,18 @@ class Zone: # pylint: disable=too-many-instance-attributes
         volume: Current volume level of the zone
         mute: Mute status of the zone
     """
-    name: str | None = None
-    id: int | None = None
-    input_source: InputSource | None = None
-    volume: int = 0
-    temp: float = 0.0
-    power: bool = False
-    mute: bool = False
-    stereo: bool = True
+    name: str | None = None                 # In both JSON files
+    internal_id: str | None = None          # In both JSON files
+    id: int | None = None                   # In only signalprocessing.json
+    input_source: int | None = None         # In both JSON files
+    volume: int | None = None               # In only signalprocessing.json
+    temp: float = 0.0                       # In both JSON files
+    power: bool = False                     # In both JSON files
+    mute: bool = False                      # In both JSON files
+    stereo: bool = True                     # In only operation.json
 
     def __post_init__(self):
-        if self.volume < 0 or self.volume > 100:
+        if self.volume is not None and (self.volume < 0 or self.volume > 100):
             raise ValueError("Volume must be between 0 and 100.")
 
     def power_cmd(self, power: bool) -> dict[str, str]:
@@ -97,6 +100,8 @@ class Zone: # pylint: disable=too-many-instance-attributes
     def populate_from_dict(self, data: dict[str, Any], temp_unit: str = "F") -> None:
         """Populate the Zone attributes from a dictionary."""
         self.name = data.get("name")
+        self.internal_id = data.get("identifier")
+        self.input_source = data.get("inputSource", 0)
         self.temp = temp_conversion(data.get("tempValue", 0.0), temp_unit)
         self.power = bool(data.get("zonePower", 0))
         self.mute = bool(data.get("mute", 0))
@@ -108,13 +113,13 @@ class Zone: # pylint: disable=too-many-instance-attributes
             self.stereo = not bool(data.get("mono", 0))
 
     @classmethod
-    def from_zones_list(cls, zones_list: list[dict[str, Any]], temp_unit: str = "F") -> list["Zone"]:
+    def from_zones_list(cls, zones_list: list[dict[str, Any]], temp_unit: str = "F") -> dict[str, "Zone"]:
         """Create a list of Zone instances from a list of dictionaries."""
-        zones = []
+        zones = {}
         for zone_data in zones_list:
             zone = cls()
             zone.populate_from_dict(data=zone_data, temp_unit=temp_unit)
-            zones.append(zone)
+            zones[zone.internal_id] = zone
         return zones
 
 
@@ -128,18 +133,20 @@ class Amp: # pylint: disable=too-many-instance-attributes
         zones: List of zones in the amp
         temp: Current temperature of the amp
     """
-    name: str | None = None
-    model: str | None = None
-    version: str | None = None
-    inputs: list[InputSource] | None = None
-    zones: list[Zone] | None = None
-    temp: float = 0.0
-    temp_unit: str = "F"  # Default to Fahrenheit
-    power: bool = False
+    name: str | None = None     # In both JSON files
+    model: str | None = None    # In both JSON files
+    version: str | None = None  # In only operation.json
+    temp: float = 0.0           # In only operation.json
+    temp_unit: str = "F"        # In both JSON files [Default to Fahrenheit]
+    power: bool = False         # In both JSON files
+    inputs: dict[int, InputSource] = {}
+    zones: dict[str, Zone] = {}
+
 
     def input_from_name(self, name: str) -> InputSource | None:
         """Returns the input source with the given name."""
-        for input_source in self.inputs or []:
+        input_list = [] if self.inputs is None else self.inputs.values()
+        for input_source in input_list or []:
             if input_source.name == name:
                 return input_source
         return None
@@ -156,15 +163,34 @@ class Amp: # pylint: disable=too-many-instance-attributes
         self.temp_unit = "C" if data.get("displayCentigrade", 0) == 1 else "F"
         if "build" in data:
             self.version = data.get("build")
-        if "temp" in data:
-            self.temp = temp_conversion(data.get("temp", 0.0), self.temp_unit)
+        if "tempValue" in data:
+            self.temp = temp_conversion(data.get("tempValue", 0.0), self.temp_unit)
 
+        input_data: list[dict[str, Any]] = []
         if "inputNames" in data:
-            self.inputs = InputSource.from_inputs_list(data.get("inputNames", []))
+            input_data = data.get("inputNames", [])
         elif "inputChannel" in data:
-            self.inputs = InputSource.from_inputs_list(data.get("inputChannel", []))
+            input_data = data.get("inputChannel", [])
 
+        for i in input_data:
+            val: int = i.get("value", 0)
+            if id in self.inputs:
+                self.inputs[val].populate_from_dict(i)
+            else:
+                self.inputs[val] = InputSource()
+                self.inputs[val].populate_from_dict(i)
+
+
+        zone_data: list[dict[str, Any]] = []
         if "outputZones" in data:
-            self.zones = Zone.from_zones_list(data.get("outputZones", []), temp_unit=self.temp_unit)
+            zone_data = data.get("outputZones", [])
         elif "outputZone" in data:
-            self.zones = Zone.from_zones_list(data.get("outputZone", []), temp_unit=self.temp_unit)
+            zone_data = data.get("outputZone", [])
+
+        for z in zone_data:
+            identifier: str = z.get("identifier", 0)
+            if identifier in self.zones:
+                self.zones[identifier].populate_from_dict(z)
+            else:
+                self.zones[identifier] = Zone()
+                self.zones[identifier].populate_from_dict(z)
