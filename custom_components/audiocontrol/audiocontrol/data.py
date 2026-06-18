@@ -40,16 +40,6 @@ class InputSource:
         self.id = data.get("value")
         self.digital = bool(self.id in (8,9))  # Assumes 8 and 9 are digital inputs
 
-    @classmethod
-    def from_inputs_list(cls, inputs_list: list[dict[str, Any]]) -> dict[int, "InputSource"]:
-        """Create a list of InputSource instances from a list of dictionaries."""
-        sources = {}
-        for input_data in inputs_list:
-            source = cls()
-            source.populate_from_dict(input_data)
-            sources[source.id] = source
-        return sources
-
 @dataclass
 class Zone: # pylint: disable=too-many-instance-attributes
     """Represents a zone in the AudioControl Amp.
@@ -111,17 +101,6 @@ class Zone: # pylint: disable=too-many-instance-attributes
             self.volume = data.get("volume", 0)
         if "mono" in data:
             self.stereo = not bool(data.get("mono", 0))
-
-    @classmethod
-    def from_zones_list(cls, zones_list: list[dict[str, Any]], temp_unit: str = "F") -> dict[str, "Zone"]:
-        """Create a list of Zone instances from a list of dictionaries."""
-        zones = {}
-        for zone_data in zones_list:
-            zone = cls()
-            zone.populate_from_dict(data=zone_data, temp_unit=temp_unit)
-            zones[zone.internal_id] = zone
-        return zones
-
 
 @dataclass
 class Amp: # pylint: disable=too-many-instance-attributes
