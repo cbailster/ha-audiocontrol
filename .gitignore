@@ -29,3 +29,6 @@ Icon
 
 # Environment variables
 .env
+
+#other
+test_data/
