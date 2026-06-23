@@ -65,8 +65,10 @@ class HTTPClient:
             async with aiohttp.ClientSession(timeout=timeout) as session:  # noqa: SIM117
                 async with session.request(method, url, params=params) as response:
                     text = await response.text()
-                    if decode and response.headers.get("Content-Type", "").startswith("application/json"):
-                        text = await response.json()
+                    if (decode and
+                        (response.headers.get("Content-Type", "").startswith("application/json")
+                         or response.headers.get("Content-Type", "").startswith("text/javascript"))):
+                        text = await response.json(content_type=None)
                     return {
                         "status": response.status,
                         "text": text,
@@ -109,7 +111,7 @@ class HTTPClient:
         """
         return await self._make_request(endpoint, method="POST", params=data, decode=decode)
 
-    async def send_command(self, command: str, **kwargs) -> bool:
+    async def send_command(self, command: dict[str, Any], signal_processing = False, **kwargs) -> bool:
         """Send a command to the matrix device.
 
         Args:
@@ -123,8 +125,11 @@ class HTTPClient:
             AudioControlCommandError: If command fails
         """
 
+        command.update(kwargs)
+        endpoint = self.OPERATION_ENDPOINT if not signal_processing else self.DETAILED_ENDPOINT
+
         try:
-            response = await self.post(self.OPERATION_ENDPOINT, data=kwargs, decode=False)
+            response = await self.post(endpoint, data=command, decode=True)
             # Check if response status is successful (2xx)
             return 200 <= response["status"] < 300
         except (AudioControlConnectionError, AudioControlTimeoutError) as e:
