@@ -14,7 +14,7 @@ from .audiocontrol.exceptions import (
 
 MAX_FAILURES = 3
 
-class AudioControlCoordinator(DataUpdateCoordinator):
+class AudioControlCoordinator(DataUpdateCoordinator[Any]):
     """Audio Control data update coordinator."""
 
     config_entry: AudioControlConfigEntry
@@ -44,3 +44,7 @@ class AudioControlCoordinator(DataUpdateCoordinator):
             LOGGER.error("Error fetching data from Audio Control device: %s, consecutive failures: %s", err, self.consecutive_failures)
             if self.consecutive_failures >= MAX_FAILURES:
                 raise UpdateFailed(f"Error fetching data from Audio Control device: {err}") from err
+
+    def async_update_from_client(self) -> None:
+        """Set coordinator data from the client's cached amp_info."""
+        self.async_set_updated_data(self.config_entry.runtime_data.client.amp_info)
