@@ -1,6 +1,6 @@
 """Data Classes for AudioControl library."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 def temp_conversion(temp: float, unit: str) -> float:
@@ -54,7 +54,7 @@ class Zone: # pylint: disable=too-many-instance-attributes
     name: str | None = None                 # In both JSON files
     internal_id: str | None = None          # In both JSON files
     id: int | None = None                   # In only signalprocessing.json
-    input_source: int | None = None         # In both JSON files
+    input: int | None = None                # In both JSON files
     volume: int | None = None               # In only signalprocessing.json
     temp: float = 0.0                       # In both JSON files
     power: bool = False                     # In both JSON files
@@ -91,7 +91,7 @@ class Zone: # pylint: disable=too-many-instance-attributes
         """Populate the Zone attributes from a dictionary."""
         self.name = data.get("name")
         self.internal_id = data.get("identifier")
-        self.input_source = data.get("inputSource", 0)
+        self.input = data.get("inputSource", 0)
         self.temp = temp_conversion(data.get("tempValue", 0.0), temp_unit)
         self.power = bool(data.get("zonePower", 0))
         self.mute = bool(data.get("mute", 0))
@@ -118,8 +118,8 @@ class Amp: # pylint: disable=too-many-instance-attributes
     temp: float = 0.0           # In only operation.json
     temp_unit: str = "F"        # In both JSON files [Default to Fahrenheit]
     power: bool = False         # In both JSON files
-    inputs: dict[int, InputSource] = {}
-    zones: dict[str, Zone] = {}
+    inputs: dict[int, InputSource] = field(default_factory=dict)
+    zones: dict[str, Zone] = field(default_factory=dict)
 
 
     def input_from_name(self, name: str) -> InputSource | None:
