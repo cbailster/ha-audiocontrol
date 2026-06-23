@@ -37,11 +37,13 @@ class HTTPClient:
         self.port = port
         self.timeout = timeout
         self.base_url = f"http://{host}:{port}"
+        self.cached_response: dict[str, Any] | None = None
 
     async def _make_request(
         self, endpoint: str,
         method: str = "GET",
         params: dict[str, Any] | None = None,
+        data: dict[str, Any] | None = None,
         decode: bool = True
     ) -> dict[str, Any]:
         """Send a {method} request to the matrix device.
@@ -63,7 +65,7 @@ class HTTPClient:
 
         try:
             async with aiohttp.ClientSession(timeout=timeout) as session:  # noqa: SIM117
-                async with session.request(method, url, params=params) as response:
+                async with session.request(method, url, params=params, data=data) as response:
                     text = await response.text()
                     if (decode and
                         (response.headers.get("Content-Type", "").startswith("application/json")
@@ -109,7 +111,7 @@ class HTTPClient:
         Returns:
             Dictionary containing status code and response text
         """
-        return await self._make_request(endpoint, method="POST", params=data, decode=decode)
+        return await self._make_request(endpoint, method="POST", data=data, decode=decode)
 
     async def send_command(self, command: dict[str, Any], signal_processing = False, **kwargs) -> bool:
         """Send a command to the matrix device.
@@ -127,10 +129,14 @@ class HTTPClient:
 
         command.update(kwargs)
         endpoint = self.OPERATION_ENDPOINT if not signal_processing else self.DETAILED_ENDPOINT
-
+        print(f"sending command {command} to {endpoint}")
         try:
             response = await self.post(endpoint, data=command, decode=True)
             # Check if response status is successful (2xx)
-            return 200 <= response["status"] < 300
+            if 200 <= response["status"] < 300:
+                self.cached_response = response["text"]
+                return True
+            self.cached_response = None
+            return False
         except (AudioControlConnectionError, AudioControlTimeoutError) as e:
             raise AudioControlCommandError(f"Failed to send command '{command}': {e}") from e
