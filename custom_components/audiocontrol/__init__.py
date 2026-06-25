@@ -4,10 +4,8 @@
 
 from datetime import timedelta
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.loader import async_get_loaded_integration
 
@@ -18,8 +16,7 @@ from .data import AudioControlData, AudioControlConfigEntry
 from .config_flow import DEFAULT_SCAN_INTERVAL, DEFAULT_PORT
 
 # Platforms to set up for this integration
-# PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.MEDIA_PLAYER, Platform.SENSOR]
-PLATFORMS: list[Platform] = [Platform.SWITCH]
+PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.MEDIA_PLAYER, Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: AudioControlConfigEntry) -> bool:
