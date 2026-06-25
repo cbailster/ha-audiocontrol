@@ -60,6 +60,8 @@ class Zone: # pylint: disable=too-many-instance-attributes
     power: bool = False                     # In both JSON files
     mute: bool = False                      # In both JSON files
     stereo: bool = True                     # In only operation.json
+    digital: bool = False                   # In only operation.json
+
 
     def __post_init__(self):
         if self.volume is not None and (self.volume < 0 or self.volume > 100):
@@ -101,6 +103,9 @@ class Zone: # pylint: disable=too-many-instance-attributes
             self.volume = data.get("volume", 0)
         if "mono" in data:
             self.stereo = not bool(data.get("mono", 0))
+        if "isDigital" in data:
+            self.digital = bool(data.get("isDigital", 0))
+
 
 @dataclass
 class Amp: # pylint: disable=too-many-instance-attributes
