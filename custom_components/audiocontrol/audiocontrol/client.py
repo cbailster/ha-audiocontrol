@@ -95,7 +95,7 @@ class AudioControlClient:
         cmd = zone.mute_cmd(status)
         await self.send_command(command=cmd, signal_processing=True)
 
-    async def channel_stero(self, zone_id:str, status:bool):
+    async def channel_stereo(self, zone_id:str, status:bool):
         """ Send a command to set a specific zone to stereo/mono output on the amplifier."""
         zone = self.amp_info.zones[zone_id]
         cmd = zone.stereo_cmd(status)
