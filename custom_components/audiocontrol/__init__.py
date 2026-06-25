@@ -18,7 +18,7 @@ from .data import AudioControlData, AudioControlConfigEntry
 from .config_flow import DEFAULT_SCAN_INTERVAL, DEFAULT_PORT
 
 # Platforms to set up for this integration
-PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.MEDIA_PLAYER, Platform.SENSOR]
+# PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.MEDIA_PLAYER, Platform.SENSOR]
 PLATFORMS: list[Platform] = [Platform.SWITCH]
 
 
